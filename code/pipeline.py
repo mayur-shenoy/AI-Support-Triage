@@ -4,13 +4,15 @@ from dataclasses import asdict
 from dataclasses import replace
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from config import load_environment
 from escalation_judge import EscalationJudge
 from guard_agent import GuardAgent
+from hallucination_agent import HallucinationAgent
 from language_support import LanguageProcessor
 from llm_client import LLMClient
-from models import GuardResult, LanguageState, PipelineResult, RetrievedChunk, ResponseDraft, Ticket, TicketTrace, TriageResult
+from models import GuardResult, HallucinationResult, LanguageState, PipelineResult, RetrievedChunk, ResponseDraft, Ticket, TicketTrace, TriageResult
 from response_agent import ResponseAgent
 from retriever import HybridRetriever
 from triage_agent import TriageAgent
@@ -26,6 +28,7 @@ class TicketAnalysis:
     chunks: list[RetrievedChunk]
     intent_chunks: dict[str, list[RetrievedChunk]]
     draft: ResponseDraft
+    hallucination: HallucinationResult
     final: ResponseDraft
     retrieval_attempts: int
     retrieval_queries: list[str]
@@ -42,20 +45,30 @@ class OrchestratePipeline:
         self.triage_agent = TriageAgent()
         self.retriever = HybridRetriever(repo_root=repo_root)
         self.response_agent = ResponseAgent(llm_client=self.llm_client)
+        self.hallucination_agent = HallucinationAgent()
         self.language_processor = LanguageProcessor(llm_client=self.llm_client)
         self.escalation_judge = EscalationJudge()
 
-    def analyze(self, ticket: Ticket) -> TicketAnalysis:
+    def analyze(self, ticket: Ticket, stage_callback: Callable[[str], None] | None = None) -> TicketAnalysis:
+        self._emit(stage_callback, "language_normalization")
         normalized_ticket, language_state = self.language_processor.prepare_ticket(ticket)
+        self._emit(stage_callback, "guard")
         guard = self.guard_agent.evaluate(normalized_ticket)
+        self._emit(stage_callback, "triage")
         triage = self.triage_agent.classify(normalized_ticket)
+        self._emit(stage_callback, "retrieval")
         triage, chunks, intent_chunks, draft, attempts_used, retrieval_queries = self._run_retrieval_loop(normalized_ticket, triage, guard)
+        self._emit(stage_callback, "hallucination_check")
+        draft, hallucination = self.hallucination_agent.apply(normalized_ticket, triage, draft, chunks)
+        self._emit(stage_callback, "escalation_judge")
         final = self.escalation_judge.finalize(normalized_ticket, guard, triage, draft, chunks)
         if attempts_used > 0:
             final.justification = (
                 f"{final.justification} Retrieval retry attempts used: {attempts_used}."
             ).strip()
+        self._emit(stage_callback, "localization")
         localized_final = self.language_processor.localize_draft(final, language_state)
+        self._emit(stage_callback, "complete")
         return TicketAnalysis(
             ticket=ticket,
             normalized_ticket=normalized_ticket,
@@ -65,6 +78,7 @@ class OrchestratePipeline:
             chunks=chunks,
             intent_chunks=intent_chunks,
             draft=draft,
+            hallucination=hallucination,
             final=localized_final,
             retrieval_attempts=attempts_used,
             retrieval_queries=retrieval_queries,
@@ -137,6 +151,7 @@ class OrchestratePipeline:
                 ],
             },
             draft=asdict(analysis.draft),
+            hallucination=asdict(analysis.hallucination),
             final=asdict(analysis.final),
         )
 
@@ -243,3 +258,8 @@ class OrchestratePipeline:
         if abs(candidate_draft.confidence - best_draft.confidence) <= 0.02 and candidate_top > best_top:
             return True
         return False
+
+    @staticmethod
+    def _emit(stage_callback: Callable[[str], None] | None, stage: str) -> None:
+        if stage_callback:
+            stage_callback(stage)

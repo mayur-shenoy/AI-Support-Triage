@@ -72,6 +72,14 @@ class ResponseDraft:
 
 
 @dataclass(slots=True)
+class HallucinationResult:
+    is_grounded: bool
+    score: float
+    unsupported_claims: List[str] = field(default_factory=list)
+    notes: str = ""
+
+
+@dataclass(slots=True)
 class PipelineResult:
     status: str
     product_area: str
@@ -92,6 +100,7 @@ class TicketTrace:
     triage: dict[str, Any]
     retrieval: dict[str, Any]
     draft: dict[str, Any]
+    hallucination: dict[str, Any]
     final: dict[str, Any]
 
 

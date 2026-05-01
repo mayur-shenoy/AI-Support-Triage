@@ -10,8 +10,11 @@ This `code/` directory contains the phase-one prototype for the HackerRank Orche
 - Response synthesizer with two modes:
   - Template mode with no API dependency
   - Optional LLM mode using environment variables
+- Hallucination verifier that checks generated responses against retrieved evidence and escalates high-risk unsupported answers
 - Escalation judge for final safety and confidence checks
 - Terminal entry point that reads `../support_tickets/support_tickets.csv` and writes `../support_tickets/output.csv`
+- Rich-powered batch progress display with live stage updates
+- Knowledge-gap report under `../log/knowledge_gaps_latest.json`
 - Interactive CLI mode for live ticket testing
 - Textual TUI mode with streaming Anthropic responses
 - Guided Textual workflow with company selection, subject, multiline issue entry, CSV ingestion, similar-incident retrieval, structured state output, references, and confidence display
@@ -94,6 +97,12 @@ python .\code\main.py
 python .\code\main.py --mode interactive
 python .\code\main.py --mode tui
 ```
+
+Batch mode writes:
+
+- `support_tickets/output.csv` for evaluator-facing predictions
+- `log/ticket_trace_latest.json` for per-ticket stage/retrieval/hallucination traces
+- `log/knowledge_gaps_latest.json` for low-confidence or weakly grounded tickets that may need more corpus coverage
 
 ## Notes
 
