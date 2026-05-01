@@ -1,1 +1,130 @@
-issue,subject,company,response,product_area,status,request_type,justification
+status,product_area,response,justification,request_type
+escalated,account_access,"Based on the support documentation I found, here is the most relevant guidance:
+
+#### I lost Admin/Owner access after enabling group mappings This happens when the person configuring group mappings isn't assigned to a group mapped to an Admin or Owner role, causing their permissions to be downgraded to User. To fix this: **Option 1: Have another Admin/Owner reinstate your role** 1. Contact another Admin or Owner of your organization. 2. Ask them to navigate to **[Organization settings > Organization](https://claude.ai/admin-settings/organization)** (for Claude) or **[Settings >...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\identity-management-sso-jit-scim\13133195-set-up-jit-or-scim-provisioning.md with retrieval score 0.0. Escalated after triage because Account restoration requires administrator verification.,product_issue
+escalated,screen,"Based on the support documentation I found, here is the most relevant guidance:
+
+- **Assessment Percentile:** This will reflect a numeric value for the candidate’s test percentile. - **Band:** Upon completion, the band can be **Evaluated**, **Pass**, or **Fail**. By default, it will be set to **To Be Evaluated** upon assessment completion. If a cutoff score is set on the test level in HackerRank, the band will automatically update to **Pass** or **Fail**. - **Comments:** For HackerRank tests, we provide additional test results in the comment section. This includes the **Max Score**, attempt end time and **Question...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\integrations\applicant-tracking-systems\oracle-recruiting-cloud\3350882088-oracle-recruiting-cloud-and-hackerrank-integration-user-guide.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,billing,"Based on the support documentation I found, here is the most relevant guidance:
+
+Use this online form to report a problem you had when trying to use your Visa card. [Report a purchase issue](https://usa.visa.com/Forms/visa-rules.html) ### Inquire on a Visa rule Make an inquiry regarding the Visa Core Rules and Visa Product and Service Rules. [File a Visa rule inquiry](https://globalclient.visa.com/rule-inquiry)
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\visa\support\consumer\visa-rules.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,billing,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Subscriptions, Payments, and Billing FAQs Mock interviews Subscription plans _Last updated: Nov 12, 2025, 4:42 PM (Last updated 5 months ago)_ # Mock interviews **What happens to my mock interview credits if I merge accounts?** Mock interview credits cannot be transferred and stay on the account where they were purchased. We recommend using them before merging accounts. **Can I update my payment method?** Yes. HackerRank does not store payment methods. When purchasing mock interview credits, you can select your preferred payment option in...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\hackerrank_community\subscriptions-payments-and-billing\9157064719-payments-and-billing-faqs.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,bug
+escalated,billing,"Based on the support documentation I found, here is the most relevant guidance:
+
+1. Enter your payment details. 2. Click **Pay** to complete your transaction. **Note:** HackerRank does not issue refunds for mid-cycle upgrades. \
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\hackerrank_community\subscriptions-payments-and-billing\4312449655-upgrade-subscription-plan.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,screen,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Set Up HackerRank QuickApply _Last updated: Mar 10, 2025, 12:59 PM (Last updated 1 year ago)_ HackerRank QuickApply is a free browser extension that simplifies the job application process by automatically filling application forms using information from your HackerRank profile. QuickApply extracts key details from your HackerRank profile, such as personal information, work experience, education, and skills, to populate job application forms automatically. It currently supports applications powered by the following Applicant Tracking...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\hackerrank_community\additional-resources\job-search-and-applications\7358354033-set-up-quick-apply.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,screen,"Based on the support documentation I found, here is the most relevant guidance:
+
+# How can I Try a Question or a Test? _Last updated: Dec 23, 2024, 2:56 PM (Last updated 1 year ago)_ HackerRank for Work allows Recruiters to perform a trial run of their Tests before inviting candidates. You can validate each Test Question during the trial by submitting the answer and viewing the results. ## Steps to Try a Question - 1\. Click **Tests** on the home page and select a Test. - 2\. On the Questions page of the Test, hover your mouse over the Question you want to validate. - 3\. In the **Actions** column, click on three dots...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\screen\frequently-asked-questions\1202456939-how-to-try-a-question-or-a-test.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,bug
+escalated,screen,"Based on the support documentation I found, here is the most relevant guidance:
+
+3. Confirm you are using the correct account. Log in to the **same HackerRank Community account** you used to participate in the challenge. Results do not appear across different accounts. 4. Contact HackerRank support at [help@hackerrank.com](mailto:help@hackerrank.com) if you are still facing an issue with challenge results. **Note:** If you take part in a company-sponsored challenge, HackerRank does not display the results. The company that hosts the challenge contacts you directly with the results or next steps. **Can I view the output...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\hackerrank_community\practice-coding-challenges\1273631973-coding-challenges-faqs.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,screen,"Based on the support documentation I found, here is the most relevant guidance:
+
+17. Click **Run Tests** to compile and test your solution. 18. Check the console or log output for error messages or feedback. 19. Click **Submit** after completing each solution. 20. Click **Submit Test** after solving all questions or when you are ready to submit before the timer expires. 21. Confirm submission by clicking **Yes, close this test**. You will not be able to make additional changes after submission. ## View certification status To check your certification status: 1. Go to the **Certify** tab and locate the relevant...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\hackerrank_community\certifications\9788355678-obtain-skill-based-certifications.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,bug
+replied,screen,"I am sorry, this request is outside the scope of this support agent.",Detected an out-of-scope or non-support request.,invalid
+escalated,screen,"Based on the support documentation I found, here is the most relevant guidance:
+
+- If other interviewers are present, the interview continues. - If no other interviewers are present, the candidate moves to the lobby, and the interview ends automatically after an hour of inactivity. - **End Interview for all**: Ends the interview immediately for all participants. After ending an interview, you can:...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\interviews\manage-interviews\1242592015-ending-an-interview.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,general_support,"Based on the support documentation I found, here is the most relevant guidance:
+
+# I'm getting an API connection error. How can I fix it? _Last updated: 2026-03-16T20:43:27Z_ This error usually indicates an issue on your end, potentially related to your firewall, network, or VPN. Try these steps: - Check if there are any firewall rules or network restrictions blocking the connection to the Claude API endpoint. - Configure your firewall or network settings to allow the connection. - Ensure you're not using a VPN when running the request. If you need to [contact our Support...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\claude-api-and-console\troubleshooting\10366432-i-m-getting-an-api-connection-error-how-can-i-fix-it.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,bug
+replied,screen,"I am sorry, this request is outside the scope of this support agent.",Detected an out-of-scope or non-support request.,invalid
+escalated,billing,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Pause Subscription _Last updated: Mar 6, 2026, 12:18 AM (Last updated 2 months ago)_ The **Pause Subscription** feature allows individual self-serve plan subscribers to temporarily pause their HackerRank subscription instead of canceling it. This feature enables you to resume your subscription whenever needed, ensuring flexibility and uninterrupted access when required. ### Prerequisites To use the **Pause Subscription** feature, ensure the following conditions are met: 1. You must have an active subscription that started at least 30 days...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\settings\user-account-settings-and-preferences\5157311476-pause-subscription.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,conversation_management,"Based on the support documentation I found, here is the most relevant guidance:
+
+- Break your content into smaller chunks and process them separately - Summarize or extract key sections before sending to Claude - Use Claude to first identify the most relevant portions of your content - Start a new conversation ## Login errors If you see a generic error message when attempting to log in to your Claude account (e.g, ""There was an error logging you in""), try the following troubleshooting steps: - Ensure you’re not using a VPN when accessing Claude. - Disable any browser extensions that you currently have active. - Clear...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\claude\troubleshooting\12466728-troubleshoot-claude-error-messages.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,security,"Based on the support documentation I found, here is the most relevant guidance:
+
+### How can I find an ATM? To find an ATM, please use Visa’s [ATM locator](https://www.visa.com/atmlocator/) to get currency at over 2 million ATMs worldwide. ### Security ### I was contacted by someone claiming to be from Visa. Is this real or a scam? If you receive a call or email asking for your information, do not provide it. You can report a phone scam that uses Visa’s name by [contacting us](/contact-us.html). Visa does not call or email cardholders and request personal information. ### My identity has been stolen – what should I do?...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\visa\support.md with retrieval score 0.0. Escalated after triage because Sensitive security or fraud scenario.,product_issue
+escalated,screen,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Create a Resume with Resume Builder _Last updated: Mar 7, 2025, 4:17 PM (Last updated 1 year ago)_ The HackerRank Resume Builder is a powerful tool that helps you create a professional resume in just a few steps. It allows you to showcase your skills, achievements, and certifications to stand out to potential employers. ## Creating a resume with Resume Builder You can create a resume in one of the following ways: - Build from scratch using a template. - Import an existing resume in .doc, .docx, or .pdf format. ### Creating a resume from...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\hackerrank_community\additional-resources\job-search-and-applications\9106957203-create-a-resume-with-resume-builder.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+replied,screen,"I am sorry, this request is outside the scope of this support agent.",Detected an out-of-scope or non-support request.,invalid
+escalated,billing,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Dispute Resolution _Last modified: 2023-11-28T01:50:01.804Z_ - # Resolve disputes quickly Learn the basics about how to handle disputes. ## Protect your business Learn the basics. Although most sales transactions are processed, posted and paid for with few problems, Visa has an efficient process for settling disputes. ### Safeguard your business with the right information Disputes refer to the reversal of the value (in whole or in part) of a transaction by the card issuer to the acquirer, and usually, by the merchant bank to the merchant....
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\visa\support\small-business\dispute-resolution.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,security,"Based on the support documentation I found, here is the most relevant guidance:
+
+## Related Articles - [API Safeguards Tools](https://support.claude.com/en/articles/9199617-api-safeguards-tools) - [Model Safety Bug Bounty Program](https://support.claude.com/en/articles/12119250-model-safety-bug-bounty-program) - [Getting started with Claude for Nonprofits](https://support.claude.com/en/articles/12893767-getting-started-with-claude-for-nonprofits) - [Using Claude in Chrome Safely](https://support.claude.com/en/articles/12902428-using-claude-in-chrome-safely) - [Set up Code Review for Claude...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\safeguards\14604842-real-time-cyber-safeguards-on-claude.md with retrieval score 0.0. Escalated after triage because Sensitive security or fraud scenario.,bug
+escalated,conversation_management,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Does Anthropic crawl data from the web, and how can site owners block the crawler? _Last updated: 2026-04-07T21:18:35Z_ As per industry standard, Anthropic uses a variety of robots to gather data from the public web for model development, to search the web, and to retrieve web content at users’ direction. Anthropic uses different robots to enable website owner transparency and choice. Below is information on the three robots that Anthropic uses and how to set your site preferences to enable those you want to access your content and limit...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\privacy-and-legal\8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,general_support,"Based on the support documentation I found, here is the most relevant guidance:
+
+Check that your bank or credit card company has updated contact information. Tell them where and when you’ll be travelling – so that your card isn’t flagged for unusual activity. ### Know the emergency numbers for lost or stolen cards Take note of your card account number and the telephone number for the Visa Global Customer Assistance Services (GCAS) of the country you are travelling to. Visa cardholders can report lost or stolen Visa cards and request emergency services by calling the GCAS number. Learn more about GCAS here. ## If you’re...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\visa\support\consumer\travel-support.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,conversation_management,"Based on the support documentation I found, here is the most relevant guidance:
+
+Through the Development Partner Program, eligible organizations can contribute to improving Claude by voluntarily sharing their Claude Code sessions with us. #### Key Information - Under the Development Partner Program, only your Claude Code input and output tokens from the first-party Claude API are provided to us. Data sharing does not apply to Claude apps or API calls unrelated to Claude Code, when using our commercial products. - Your data will be stored securely for up to two years, and data used for model training will not be...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\claude-api-and-console\using-the-claude-api-and-console\11174108-about-the-development-partner-program.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,general_support,This request needs human review because it contains unsafe or restricted content.,Escalated by guard agent due to adversarial_request.,invalid
+escalated,security,"Based on the support documentation I found, here is the most relevant guidance:
+
+[Effectively Managing Data Breaches](/content/dam/VCOM/download/merchants/webinar-managing-data-breaches.pdf) [5 Important Visa Rules That Every Merchant Should Know](/content/dam/VCOM/download/merchants/5-important-rules-every-merchant-should-know-052615.pdf) [Identifying and Mitigating Threats to E-commerce Payment Processing](/content/dam/VCOM/download/merchants/webinar-ecommerce-threats-public.pdf) ## Learn how to prevent fraud Visa can help you protect your business [Visa card acceptance guidelines](/content/dam/VCOM/global/support-...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\visa\support\small-business\fraud-protection.md with retrieval score 0.0. Escalated after triage because Sensitive security or fraud scenario.,product_issue
+escalated,conversation_management,"Based on the support documentation I found, here is the most relevant guidance:
+
+# How do I get access to Claude in Amazon Bedrock? _Last updated: 2026-03-16T21:16:50Z_ Get started with Claude in Amazon Bedrock by visiting the [Amazon Bedrock console](https://console.aws.amazon.com/bedrock/). For a step-by-step walkthrough on how to request Claude model access in the Amazon Bedrock console, [view this blog](https://aws.amazon.com/blogs/aws/anthropics-claude-3-5-sonnet-model-now-available-in-amazon-bedrock-the-most-intelligent-claude-model-yet/).
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\amazon-bedrock\7996920-how-do-i-get-access-to-claude-in-amazon-bedrock.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,account_access,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Merge Multiple HackerRank Accounts _Last updated: Mar 24, 2025, 3:12 PM (Last updated 1 year ago)_ If you have multiple HackerRank accounts and want to consolidate them, you can merge one account into another. ## Merging Accounts To merge multiple HackerRank accounts: 1. Log in to [HackerRank Community](https://www.hackerrank.com/auth/login) using the credentials of the account you want to keep. 2. Click the profile icon in the top-right corner. 3. Select **Settings** from the drop-down menu. The **Settings** page opens under the...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\hackerrank\hackerrank_community\account-settings\manage-account\5981889181-merge-multiple-hackerrank-accounts.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,conversation_management,"Based on the support documentation I found, here is the most relevant guidance:
+
+# Set up the Claude LTI in Canvas by Instructure _Last updated: 2026-03-16T21:04:03Z_ This article provides information on how to enable the Claude LTI integration in Canvas LMS. These steps are intended for Claude for Education administrators and Learning Management Systems (LMS) administrators. ## Creating Claude LTI Developer Key in Canvas
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\claude\claude-for-education\11725453-set-up-the-claude-lti-in-canvas-by-instructure.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue
+escalated,general_support,"Based on the support documentation I found, here is the most relevant guidance:
+
+In general, a merchant is not permitted to establish a minimum or maximum amount for a Visa transaction. However, exceptions apply in the USA and US territories – like Puerto Rico, the US Virgin Islands and Guam. In those locations, and only for credit cards, a merchant may require a minimum transaction amount of US\$10. If you encounter an issue where a merchant has refused to accept your Visa card on the basis that the merchant requires a minimum or maximum amount on a Visa debit card, or requires that the purchase amount on a credit card...
+
+If this does not fully resolve your case, I recommend escalating it for manual review.",Used top local-corpus match from data\visa\support.md with retrieval score 0.0. Escalated because retrieval confidence was too low.,product_issue

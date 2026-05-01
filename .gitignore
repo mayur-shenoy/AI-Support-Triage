@@ -31,3 +31,10 @@ data/index/
 data/embeddings/
 *.sqlite
 *.db
+
+*.sqlite3
+.chroma_db/
+code/.chroma_db/
+.bm25_indexes/
+*.bin
+*.pickle
