@@ -139,9 +139,9 @@ def _suggest_corpus_need(analysis: TicketAnalysis) -> str:
     return f"Add more documentation for {analysis.triage.domain} / {analysis.final.product_area}."
 
 
-def run_batch_mode(repo_root: Path) -> None:
-    input_path = repo_root / "support_tickets" / "support_tickets.csv"
-    output_path = repo_root / "support_tickets" / "output.csv"
+def run_batch_mode(repo_root: Path, input_file: str | None = None, output_file: str | None = None) -> None:
+    input_path = repo_root / input_file if input_file else repo_root / "support_tickets" / "support_tickets.csv"
+    output_path = repo_root / output_file if output_file else repo_root / "support_tickets" / "output.csv"
     trace_dir = repo_root / "log"
 
     pipeline = OrchestratePipeline(repo_root=repo_root)
@@ -269,6 +269,8 @@ def build_parser() -> argparse.ArgumentParser:
         default="batch",
         help="Run the CSV pipeline or start the interactive CLI.",
     )
+    parser.add_argument("--input", type=str, help="Input CSV file for batch mode.")
+    parser.add_argument("--output", type=str, help="Output CSV file for batch mode.")
     return parser
 
 
@@ -282,7 +284,7 @@ def main() -> None:
     if args.mode == "interactive":
         run_interactive_mode(repo_root)
         return
-    run_batch_mode(repo_root)
+    run_batch_mode(repo_root, input_file=args.input, output_file=args.output)
 
 
 if __name__ == "__main__":

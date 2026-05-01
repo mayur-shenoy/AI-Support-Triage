@@ -12,6 +12,7 @@ from textual.reactive import reactive
 from textual.widgets import Button, Input, Select, Static, TextArea
 
 from models import IncidentMatch, Ticket
+from pipeline import TicketAnalysis
 from streaming_assistant import StreamingSupportAssistant, SupportStateSummary
 
 
@@ -68,10 +69,21 @@ class ConversationHistory(VerticalScroll):
         self.mount(bubble)
         self.scroll_end(animate=False)
 
+    def replace_bubble(self, bubble: ChatBubble) -> None:
+        for child in list(self.children):
+            child.remove()
+        self.add_bubble(bubble)
+
 
 class AnalysisReady(Message):
     def __init__(self, summary: SupportStateSummary) -> None:
         self.summary = summary
+        super().__init__()
+
+
+class StageUpdate(Message):
+    def __init__(self, stage: str) -> None:
+        self.stage = stage
         super().__init__()
 
 
@@ -100,6 +112,12 @@ class CsvIngested(Message):
         super().__init__()
 
 
+class IncidentSaved(Message):
+    def __init__(self, output_path: str) -> None:
+        self.output_path = output_path
+        super().__init__()
+
+
 class AsyncFailed(Message):
     def __init__(self, error_text: str) -> None:
         self.error_text = error_text
@@ -107,6 +125,17 @@ class AsyncFailed(Message):
 
 
 class SupportAssistantApp(App[None]):
+    STAGE_LABELS = {
+        "language_normalization": "Language normalization",
+        "guard": "Guard check",
+        "triage": "Triage classification",
+        "retrieval": "Hybrid + graph retrieval",
+        "hallucination_check": "Hallucination verification",
+        "escalation_judge": "Escalation judge",
+        "localization": "Localization",
+        "complete": "Complete",
+    }
+
     CSS = """
     Screen {
         background: #0b1020;
@@ -116,39 +145,39 @@ class SupportAssistantApp(App[None]):
     #app-shell {
         height: 100%;
         layout: vertical;
-        padding: 1;
+        padding: 0 1;
         background: #0b1020;
     }
 
     #title-bar {
-        height: 3;
+        height: 1;
         content-align: center middle;
         background: #111827;
         color: #dbeafe;
         text-style: bold;
-        border: round #1f2937;
-        margin-bottom: 1;
+        border: none;
+        margin-bottom: 0;
     }
 
     #history {
         height: 1fr;
         border: round #1f2937;
         background: #0f172a;
-        padding: 1;
-        min-height: 12;
+        padding: 0 1;
+        min-height: 8;
     }
 
     #composer-panel {
         height: auto;
         border: round #1f2937;
         background: #111827;
-        padding: 1;
-        margin-top: 1;
+        padding: 0 1;
+        margin-top: 0;
     }
 
     .composer-row {
         height: auto;
-        margin-bottom: 1;
+        margin-bottom: 0;
     }
 
     #context-row {
@@ -156,7 +185,7 @@ class SupportAssistantApp(App[None]):
     }
 
     #company-select {
-        width: 20;
+        width: 18;
     }
 
     #subject-input, #csv-path-input {
@@ -167,13 +196,13 @@ class SupportAssistantApp(App[None]):
     }
 
     #issue-input {
-        height: 5;
+        height: 3;
         background: #0f172a;
         color: white;
         border: round #334155;
     }
 
-    #action-row-primary, #action-row-secondary {
+    #action-row-primary {
         height: 3;
         margin-top: 0;
     }
@@ -183,13 +212,13 @@ class SupportAssistantApp(App[None]):
     }
 
     .compact-button {
-        min-width: 12;
+        min-width: 10;
     }
 
     .chat-bubble {
         width: 100%;
         padding: 0 1;
-        margin-bottom: 1;
+        margin-bottom: 0;
     }
 
     .user {
@@ -227,10 +256,12 @@ class SupportAssistantApp(App[None]):
         self.repo_root = repo_root
         self._active_ai_bubble: ChatBubble | None = None
         self._request_in_flight = False
+        self._last_ticket: Ticket | None = None
+        self._last_analysis: TicketAnalysis | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="app-shell"):
-            yield Static("Support Engineer Assistant", id="title-bar")
+            yield Static("⚡ Support Engineer Assistant  [Ctrl+R] Recommend  [Ctrl+K] Similar  [Ctrl+Q] Exit", id="title-bar")
             yield ConversationHistory(id="history")
             with Vertical(id="composer-panel"):
                 with Horizontal(id="context-row", classes="composer-row"):
@@ -240,45 +271,47 @@ class SupportAssistantApp(App[None]):
                         allow_blank=False,
                         id="company-select",
                     )
-                    yield Input(placeholder="Optional subject for the ticket", id="subject-input")
+                    yield Input(placeholder="Subject (optional)", id="subject-input")
+                    yield Input(placeholder="CSV path (optional)", id="csv-path-input")
                 yield TextArea(
-                    placeholder="Describe the support issue here. Multi-line input is supported, similar to a chat composer.",
+                    placeholder="Describe the support issue…",
                     id="issue-input",
                 )
                 with Horizontal(id="action-row-primary", classes="composer-row"):
-                    yield Button("AI Recommendation", id="ai-button", classes="action-button compact-button", variant="primary")
-                    yield Button("Retrieve Similar", id="similar-button", classes="action-button compact-button")
+                    yield Button("AI Rec", id="ai-button", classes="action-button compact-button", variant="primary")
+                    yield Button("Similar", id="similar-button", classes="action-button compact-button")
+                    yield Button("Ingest CSV", id="csv-button", classes="action-button compact-button")
+                    yield Button("Save", id="save-button", classes="action-button compact-button")
                     yield Button("Clear", id="clear-button", classes="action-button compact-button")
                     yield Button("Exit", id="exit-button", classes="action-button compact-button", variant="error")
-                with Horizontal(id="action-row-secondary", classes="composer-row"):
-                    yield Input(placeholder="Optional .csv path for ingestion", id="csv-path-input")
-                    yield Button("Ingest CSV", id="csv-button", classes="action-button compact-button")
 
     async def on_mount(self) -> None:
         self.theme = "textual-dark"
         history = self.query_one("#history", ConversationHistory)
-        history.add_bubble(self._make_assistant_bubble("Support AI is starting up..."))
+        history.replace_bubble(self._make_assistant_bubble("Support AI is starting up..."))
+        self.query_one("#save-button", Button).disabled = True
         try:
             self.assistant = await asyncio.to_thread(StreamingSupportAssistant, self.repo_root)
-            history.add_bubble(self._make_assistant_bubble(self.assistant.describe_backend()))
-            history.add_bubble(
+            history.replace_bubble(
                 self._make_assistant_bubble(
-                    "Choose a company, optionally add a subject, type the issue like a chat message, then ask for an AI recommendation or retrieve similar incidents."
+                    f"{self.assistant.describe_backend()}\n\n"
+                    "Choose a company, optionally add a subject, enter the issue, then ask for an AI recommendation or retrieve similar incidents. "
+                    "The result panel is replaced for each new incident."
                 )
             )
             self.query_one("#issue-input", TextArea).focus()
         except Exception as exc:
-            history.add_bubble(self._make_error_bubble(f"Startup error: {exc}"))
+            history.replace_bubble(self._make_error_bubble(f"Startup error: {exc}"))
 
     @on(Button.Pressed, "#ai-button")
     async def handle_ai_button(self) -> None:
         ticket = self._build_ticket_from_form()
         if not ticket or self._request_in_flight:
             return
-        self._start_request(self._format_user_request(ticket))
+        self._start_request()
         bubble = self._make_assistant_bubble("")
         bubble.set_header("Thinking...")
-        self.query_one("#history", ConversationHistory).add_bubble(bubble)
+        self.query_one("#history", ConversationHistory).replace_bubble(bubble)
         self._active_ai_bubble = bubble
 
         async def emit_analysis(summary: SupportStateSummary) -> None:
@@ -291,7 +324,13 @@ class SupportAssistantApp(App[None]):
             try:
                 if not self.assistant:
                     raise RuntimeError("Support AI is not ready yet.")
-                analysis = await self.assistant.analyze_ticket(ticket)
+
+                def emit_stage(stage: str) -> None:
+                    self.call_from_thread(self.post_message, StageUpdate(stage))
+
+                analysis = await self.assistant.analyze_ticket_with_stages(ticket, emit_stage)
+                self._last_ticket = ticket
+                self._last_analysis = analysis
                 summary = self.assistant.summarize_state(analysis)
                 await emit_analysis(summary)
                 await self.assistant.stream_from_analysis(analysis, emit_token)
@@ -306,7 +345,7 @@ class SupportAssistantApp(App[None]):
         ticket = self._build_ticket_from_form()
         if not ticket or self._request_in_flight:
             return
-        self._start_request(self._format_user_request(ticket))
+        self._start_request()
 
         async def run_similar() -> None:
             try:
@@ -327,7 +366,10 @@ class SupportAssistantApp(App[None]):
         csv_path = Path(csv_input) if csv_input else self.repo_root / "support_tickets" / "support_tickets.csv"
         if not csv_path.is_absolute():
             csv_path = (self.repo_root / csv_path).resolve()
-        self._start_request(f"CSV ingestion requested\npath={csv_path}")
+        self._start_request()
+        self.query_one("#history", ConversationHistory).replace_bubble(
+            self._make_assistant_bubble(f"CSV ingestion requested\npath={csv_path}")
+        )
 
         async def run_ingest() -> None:
             try:
@@ -340,12 +382,38 @@ class SupportAssistantApp(App[None]):
 
         asyncio.create_task(run_ingest())
 
+    @on(Button.Pressed, "#save-button")
+    async def handle_save_button(self) -> None:
+        if self._request_in_flight:
+            return
+        if not self.assistant or not self._last_ticket or not self._last_analysis:
+            self.query_one("#history", ConversationHistory).replace_bubble(
+                self._make_error_bubble("Run an AI recommendation before saving an incident.")
+            )
+            return
+        self._request_in_flight = True
+        self._set_controls_disabled(True)
+
+        async def run_save() -> None:
+            try:
+                if not self.assistant or not self._last_ticket or not self._last_analysis:
+                    raise RuntimeError("No completed incident is available to save.")
+                output_path = await self.assistant.save_incident(self._last_ticket, self._last_analysis)
+                self.post_message(IncidentSaved(str(output_path)))
+            except Exception as exc:
+                self.post_message(AsyncFailed(str(exc)))
+
+        asyncio.create_task(run_save())
+
     @on(Button.Pressed, "#clear-button")
     def handle_clear_button(self) -> None:
         self.query_one("#subject-input", Input).value = ""
         self.query_one("#csv-path-input", Input).value = ""
         self.query_one("#issue-input", TextArea).clear()
         self.query_one("#company-select", Select).value = "None"
+        self._last_ticket = None
+        self._last_analysis = None
+        self.query_one("#save-button", Button).disabled = True
         self.query_one("#issue-input", TextArea).focus()
 
     @on(Button.Pressed, "#exit-button")
@@ -365,6 +433,13 @@ class SupportAssistantApp(App[None]):
         self._active_ai_bubble.set_message("Thinking...")
         self.query_one("#history", ConversationHistory).scroll_end(animate=False)
 
+    def on_stage_update(self, message: StageUpdate) -> None:
+        if self._active_ai_bubble is None:
+            return
+        label = self.STAGE_LABELS.get(message.stage, message.stage)
+        self._active_ai_bubble.set_header(f"Thinking...\nstage: {label}")
+        self.query_one("#history", ConversationHistory).scroll_end(animate=False)
+
     def on_streaming_update(self, message: StreamingUpdate) -> None:
         if self._active_ai_bubble is None:
             return
@@ -380,7 +455,7 @@ class SupportAssistantApp(App[None]):
 
     def on_similar_incidents_ready(self, message: SimilarIncidentsReady) -> None:
         content = self._format_similar_incidents(message.incidents)
-        self.query_one("#history", ConversationHistory).add_bubble(self._make_assistant_bubble(content))
+        self.query_one("#history", ConversationHistory).replace_bubble(self._make_assistant_bubble(content))
         self._finish_request()
 
     def on_csv_ingested(self, message: CsvIngested) -> None:
@@ -389,7 +464,17 @@ class SupportAssistantApp(App[None]):
             f"rows_processed: {message.count}\n"
             f"output_path: {message.output_path}"
         )
-        self.query_one("#history", ConversationHistory).add_bubble(self._make_assistant_bubble(content))
+        self.query_one("#history", ConversationHistory).replace_bubble(self._make_assistant_bubble(content))
+        self._finish_request()
+
+    def on_incident_saved(self, message: IncidentSaved) -> None:
+        content = self._current_result_text()
+        suffix = f"saved_incident: {message.output_path}"
+        if content:
+            content = f"{content}\n\n{suffix}"
+        else:
+            content = suffix
+        self.query_one("#history", ConversationHistory).replace_bubble(self._make_assistant_bubble(content))
         self._finish_request()
 
     def on_async_failed(self, message: AsyncFailed) -> None:
@@ -397,23 +482,25 @@ class SupportAssistantApp(App[None]):
         if self._active_ai_bubble is not None:
             self._active_ai_bubble.remove()
             self._active_ai_bubble = None
-        history.add_bubble(self._make_error_bubble(message.error_text))
+        history.replace_bubble(self._make_error_bubble(message.error_text))
         self._finish_request()
 
-    def _start_request(self, user_text: str) -> None:
+    def _start_request(self) -> None:
         self._request_in_flight = True
+        self._last_ticket = None
+        self._last_analysis = None
         self._set_controls_disabled(True)
-        self.query_one("#history", ConversationHistory).add_bubble(self._make_user_bubble(user_text))
 
     def _finish_request(self) -> None:
         self._active_ai_bubble = None
         self._request_in_flight = False
         self._set_controls_disabled(False)
+        self.query_one("#save-button", Button).disabled = self._last_analysis is None
         self.query_one("#issue-input", TextArea).focus()
         self.query_one("#history", ConversationHistory).scroll_end(animate=False)
 
     def _set_controls_disabled(self, disabled: bool) -> None:
-        for widget_id in ["#ai-button", "#similar-button", "#csv-button", "#clear-button", "#subject-input", "#csv-path-input", "#company-select", "#issue-input"]:
+        for widget_id in ["#ai-button", "#similar-button", "#csv-button", "#save-button", "#clear-button", "#subject-input", "#csv-path-input", "#company-select", "#issue-input"]:
             self.query_one(widget_id).disabled = disabled
 
     def _build_ticket_from_form(self) -> Ticket | None:
@@ -421,19 +508,20 @@ class SupportAssistantApp(App[None]):
         subject = self.query_one("#subject-input", Input).value.strip()
         issue = self.query_one("#issue-input", TextArea).text.strip()
         if not issue:
-            self.query_one("#history", ConversationHistory).add_bubble(
+            self.query_one("#history", ConversationHistory).replace_bubble(
                 self._make_error_bubble("Please enter an issue description before submitting.")
             )
             return None
         return Ticket(issue=issue, subject=subject, company=str(company or "None"))
 
-    @staticmethod
-    def _format_user_request(ticket: Ticket) -> str:
-        return (
-            f"company: {ticket.company}\n"
-            f"subject: {ticket.subject or '(none)'}\n"
-            f"issue:\n{ticket.issue}"
-        )
+    def _current_result_text(self) -> str:
+        history = self.query_one("#history", ConversationHistory)
+        if not history.children:
+            return ""
+        bubble = history.children[0]
+        if not isinstance(bubble, ChatBubble):
+            return ""
+        return "\n".join(part for part in [bubble.header_text, bubble.message_text, bubble.footer_text] if part)
 
     @staticmethod
     def _format_state_summary(summary: SupportStateSummary) -> str:
@@ -443,6 +531,10 @@ class SupportAssistantApp(App[None]):
             f"request_type: {summary.request_type}\n"
             f"risk_level: {summary.risk_level}\n"
             f"confidence: {summary.confidence:.2f}\n"
+            f"hallucination_score: {summary.hallucination_score:.2f}\n"
+            f"grounded: {summary.grounded}\n"
+            f"retrieval_attempts: {summary.retrieval_attempts}\n"
+            f"top_retrieval_score: {summary.top_retrieval_score:.4f}\n"
             f"response:"
         )
 
@@ -469,19 +561,13 @@ class SupportAssistantApp(App[None]):
         return "\n".join(lines)
 
     @staticmethod
-    def _make_user_bubble(content: str) -> ChatBubble:
-        bubble = ChatBubble("user", "▶", "You:", "right", "user")
-        bubble.set_message(content)
-        return bubble
-
-    @staticmethod
     def _make_assistant_bubble(content: str) -> ChatBubble:
-        bubble = ChatBubble("assistant", "◆", "Support AI:", "left", "assistant")
+        bubble = ChatBubble("assistant", ">", "Support AI:", "left", "assistant")
         bubble.set_message(content)
         return bubble
 
     @staticmethod
     def _make_error_bubble(content: str) -> ChatBubble:
-        bubble = ChatBubble("error", "◆", "Support AI:", "left", "error")
+        bubble = ChatBubble("error", ">", "Support AI:", "left", "error")
         bubble.set_message(content)
         return bubble

@@ -1,7 +1,0 @@
-{
-  "collection_name": "support_chunks_v3",
-  "dense_model_name": "sentence-transformers/all-MiniLM-L6-v2",
-  "chunk_size": 1100,
-  "record_count": 8701,
-  "digest": "5c3e37bb82065992ab4371c3dcbfb8062552d3fd6138a16540245b6d0650a807"
-}

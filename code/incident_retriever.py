@@ -47,21 +47,27 @@ class SimilarIncidentRetriever:
 
     def _load_incidents(self) -> list[IncidentMatch]:
         sample_path = self.repo_root / "support_tickets" / "sample_support_tickets.csv"
-        with sample_path.open("r", encoding="utf-8-sig", newline="") as handle:
-            rows = list(csv.DictReader(handle))
-        return [
-            IncidentMatch(
-                issue=(row.get("Issue") or "").strip(),
-                subject=(row.get("Subject") or "").strip(),
-                company=(row.get("Company") or "None").strip() or "None",
-                response=(row.get("Response") or "").strip(),
-                product_area=(row.get("Product Area") or "").strip(),
-                status=(row.get("Status") or "").strip(),
-                request_type=(row.get("Request Type") or "").strip(),
-                score=0.0,
-            )
-            for row in rows
-        ]
+        saved_path = self.repo_root / "support_tickets" / "saved_incidents.csv"
+        rows: list[dict[str, str]] = []
+        for path in [sample_path, saved_path]:
+            if not path.exists():
+                continue
+            with path.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows.extend(csv.DictReader(handle))
+        return [self._row_to_incident(row) for row in rows]
+
+    @staticmethod
+    def _row_to_incident(row: dict[str, str]) -> IncidentMatch:
+        return IncidentMatch(
+            issue=(row.get("Issue") or "").strip(),
+            subject=(row.get("Subject") or "").strip(),
+            company=(row.get("Company") or "None").strip() or "None",
+            response=(row.get("Response") or "").strip(),
+            product_area=(row.get("Product Area") or "").strip(),
+            status=(row.get("Status") or "").strip(),
+            request_type=(row.get("Request Type") or "").strip(),
+            score=0.0,
+        )
 
     @staticmethod
     def _incident_text(incident: IncidentMatch) -> str:

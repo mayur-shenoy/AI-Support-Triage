@@ -23,6 +23,7 @@ class ResponseAgent:
         r"follow|reach out|visit|complete|provide|select|enter|check|open|remove|create|request|update)\b",
         re.IGNORECASE,
     )
+    LINK_RE = re.compile(r"\[[^\]]+\]\([^)]+\)|https?://\S+|mailto:\S+", re.IGNORECASE)
 
     def __init__(self, llm_client: LLMClient) -> None:
         self.llm_client = llm_client
@@ -152,7 +153,12 @@ class ResponseAgent:
             return self._build_low_confidence_response(triage, chunks)
 
         if len(triage.intent_queries) <= 1:
-            steps = self._guidance_points_from_chunks(chunks, max_points=3)
+            context_chunks = self._prefer_supporting_context(chunks, triage.intent_queries[0] if triage.intent_queries else "")
+            steps = self._guidance_points_from_chunks(
+                context_chunks,
+                max_points=5,
+                priority_text=triage.intent_queries[0] if triage.intent_queries else "",
+            )
             lines = ["Based on the support documentation, these are the recommended next steps:"]
             lines.extend(f"{idx}. {step}" for idx, step in enumerate(steps, start=1))
             lines.append("")
@@ -162,6 +168,7 @@ class ResponseAgent:
         sections = ["This ticket appears to contain multiple intents. Based on the retrieved support guidance:"]
         for idx, query in enumerate(triage.intent_queries, start=1):
             query_chunks = (intent_chunks or {}).get(query) or [chunks[min(idx - 1, len(chunks) - 1)]]
+            query_chunks = self._prefer_supporting_context(query_chunks, query)
             points = self._guidance_points_from_chunks(query_chunks, max_points=2, priority_text=query)
             sections.append(f"\nIntent {idx}: {query}")
             sections.extend(f"{point_index}. {point}" for point_index, point in enumerate(points, start=1))
@@ -197,6 +204,34 @@ class ResponseAgent:
                 return matches[0]
         return None
 
+    def _prefer_supporting_context(self, chunks: list[RetrievedChunk], query: str) -> list[RetrievedChunk]:
+        if not chunks:
+            return chunks
+        primary = chunks[0]
+        if not self._is_link_hub(primary.text):
+            return chunks
+
+        query_terms = self._priority_terms(query)
+        procedural = [
+            chunk
+            for chunk in chunks[1:]
+            if self._chunk_has_procedural_content(chunk, query_terms)
+        ]
+        return procedural + [primary] + [chunk for chunk in chunks[1:] if chunk not in procedural]
+
+    def _is_link_hub(self, text: str) -> bool:
+        clean_text = self._clean_context_text(text)
+        link_count = len(self.LINK_RE.findall(text))
+        action_count = len(re.findall(r"\b(?:click|select|log in|deactivate|remove|save|confirm|navigate)\b", clean_text.lower()))
+        return link_count >= 4 and action_count <= 3
+
+    def _chunk_has_procedural_content(self, chunk: RetrievedChunk, query_terms: set[str]) -> bool:
+        cleaned = self._clean_context_text(chunk.text).lower()
+        action_hits = len(re.findall(r"\b(?:click|select|log in|deactivate|remove|save|confirm|navigate|search)\b", cleaned))
+        query_hits = sum(1 for term in query_terms if term in cleaned)
+        section_hit = any(term in chunk.section_title.lower() for term in ["deactivating", "user management", "accessing user"])
+        return action_hits >= 2 and (query_hits >= 1 or section_hit)
+
     def _draft_from_payload(
         self,
         ticket: Ticket,
@@ -211,8 +246,10 @@ class ResponseAgent:
         justification_text = self._coerce_response_text(
             payload.get("justification", "LLM-generated corpus-grounded reply."),
         )
+        confidence = llm_confidence if llm_confidence is not None else fallback_confidence
+        status = self._normalize_llm_status(status, triage, response_text, confidence)
         return ResponseDraft(
-            status="escalated" if status not in {"replied", "escalated"} else status,
+            status=status,
             product_area=normalize_product_area(
                 triage.domain,
                 payload.get("product_area", triage.product_area),
@@ -221,7 +258,7 @@ class ResponseAgent:
             response=response_text or self._fallback_response(triage),
             justification=justification_text or "LLM-generated corpus-grounded reply.",
             request_type=request_type if request_type in {"product_issue", "feature_request", "bug", "invalid"} else triage.request_type,
-            confidence=llm_confidence if llm_confidence is not None else fallback_confidence,
+            confidence=confidence,
         )
 
     def _draft_with_llm_text(
@@ -257,18 +294,54 @@ class ResponseAgent:
         product_area = self._extract_scalar(self.PRODUCT_AREA_RE, rendered, triage.product_area)
         request_type = self._extract_scalar(self.REQUEST_TYPE_RE, rendered, triage.request_type)
         confidence = self._safe_confidence(self._extract_scalar(self.CONFIDENCE_RE, rendered, ""))
+        final_confidence = confidence if confidence is not None else fallback_confidence
 
         if not response_text:
             return None
 
+        status = self._normalize_llm_status(status, triage, response_text, final_confidence)
+
         return ResponseDraft(
-            status="escalated" if status not in {"replied", "escalated"} else status,
+            status=status,
             product_area=normalize_product_area(triage.domain, product_area, ticket.text),
             response=response_text,
             justification=justification_text or "LLM-generated corpus-grounded reply.",
             request_type=request_type if request_type in {"product_issue", "feature_request", "bug", "invalid"} else triage.request_type,
-            confidence=confidence if confidence is not None else fallback_confidence,
+            confidence=final_confidence,
         )
+
+    def _normalize_llm_status(
+        self,
+        status: str,
+        triage: TriageResult,
+        response_text: str,
+        confidence: float,
+    ) -> str:
+        if status not in {"replied", "escalated"}:
+            status = "replied"
+        if triage.needs_escalation:
+            return "escalated"
+        if status == "replied":
+            return "replied"
+
+        lowered = response_text.lower()
+        escalation_language = any(
+            phrase in lowered
+            for phrase in (
+                "escalat",
+                "human review",
+                "manual review",
+                "support team",
+                "cannot",
+                "could not find",
+                "insufficient",
+                "not covered",
+                "not authorized",
+            )
+        )
+        if confidence >= self.LOW_CONFIDENCE_TEMPLATE_THRESHOLD and not escalation_language:
+            return "replied"
+        return "escalated"
 
     def _build_llm_user_prompt(
         self,
@@ -327,6 +400,9 @@ class ResponseAgent:
         points: list[str] = []
         seen: set[str] = set()
         priority_terms = self._priority_terms(priority_text)
+        procedural_points = self._procedural_points_from_chunks(chunks, priority_terms)
+        if procedural_points:
+            return procedural_points[:max_points]
         for chunk in chunks:
             candidate_points = self._priority_sentences(chunk.text, priority_terms)
             candidate_points.extend(self._extract_guidance_points(chunk.text))
@@ -350,6 +426,31 @@ class ResponseAgent:
         if fallback:
             return [fallback[:220].rstrip(" .") + "."]
         return ["Review the closest matching support documentation and escalate if the issue remains unresolved."]
+
+    def _procedural_points_from_chunks(
+        self,
+        chunks: list[RetrievedChunk],
+        priority_terms: set[str],
+    ) -> list[str]:
+        if not chunks or not (priority_terms & {"employee", "remove", "user", "users", "hiring", "account"}):
+            return []
+
+        combined = "\n".join(self._clean_context_text(chunk.text) for chunk in chunks[:3]).lower()
+        if "user management" not in combined or "deactivate" not in combined:
+            return []
+
+        points: list[str] = []
+        if "hackerrank for work" in combined:
+            points.append("Log in to your HackerRank for Work account.")
+        if "admin panel" in combined:
+            points.append("Click your profile icon in the upper-right corner and select Admin Panel.")
+        if "user management" in combined:
+            points.append("From the admin panel, open User Management and use the search bar or filters to locate the employee's user account.")
+        if "deactivate user" in combined or "deactivating a user" in combined:
+            points.append("Click the ellipsis next to the user's name, select Deactivate User, and confirm by clicking Deactivate.")
+        if "status changes to" in combined and "deactivated" in combined:
+            points.append("Confirm that the user's status changes to Deactivated.")
+        return points
 
     def _extract_guidance_points(self, text: str) -> list[str]:
         cleaned = self._clean_context_text(text)
@@ -445,6 +546,10 @@ class ResponseAgent:
             keyword in lowered for keyword in ["refund", "contact", "support team", "not satisfied", "purchase"]
         ):
             score += 4
+        if priority_terms & {"employee", "remove", "user", "users", "hiring", "account"} and any(
+            keyword in lowered for keyword in ["deactivate", "deactivating", "user management", "admin panel", "ellipsis", "deactivated"]
+        ):
+            score += 5
         if any(term in priority_terms for term in {"infosec", "security", "forms"}) and any(
             keyword in lowered for keyword in ["infosec", "security", "form", "support"]
         ):
@@ -467,6 +572,10 @@ class ResponseAgent:
             lowered = sentence.lower()
             if "refund" in priority_terms and any(
                 keyword in lowered for keyword in ["refund", "not satisfied", "support team", "contact"]
+            ):
+                matches.append(sentence)
+            elif priority_terms & {"employee", "remove", "user", "users", "hiring", "account"} and any(
+                keyword in lowered for keyword in ["deactivate", "deactivating", "user management", "admin panel", "ellipsis", "deactivated"]
             ):
                 matches.append(sentence)
             elif priority_terms & set(re.findall(r"[a-zA-Z0-9']+", lowered)):

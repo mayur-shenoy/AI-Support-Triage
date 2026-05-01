@@ -17,6 +17,7 @@ from pipeline import OrchestratePipeline, TicketAnalysis
 
 
 TokenCallback = Callable[[str], Awaitable[None]]
+StageCallback = Callable[[str], None]
 
 
 @dataclass(slots=True)
@@ -33,6 +34,10 @@ class SupportStateSummary:
     request_type: str
     risk_level: str
     confidence: float
+    hallucination_score: float
+    grounded: bool
+    retrieval_attempts: int
+    top_retrieval_score: float
     references: list[str]
 
 
@@ -74,11 +79,22 @@ class StreamingSupportAssistant:
     async def analyze_ticket(self, ticket: Ticket) -> TicketAnalysis:
         return await asyncio.to_thread(self.pipeline.analyze, ticket)
 
+    async def analyze_ticket_with_stages(
+        self,
+        ticket: Ticket,
+        on_stage: StageCallback,
+    ) -> TicketAnalysis:
+        return await asyncio.to_thread(self.pipeline.analyze, ticket, on_stage)
+
     async def stream_from_analysis(
         self,
         analysis: TicketAnalysis,
         on_token: TokenCallback,
     ) -> None:
+        if os.getenv("ORCHESTRATE_TUI_REWRITE", "").strip().lower() not in {"1", "true", "yes"}:
+            await self._stream_plain_text(analysis.final.response, on_token)
+            return
+
         if self._should_use_canned_response(analysis):
             await self._stream_plain_text(self._canned_response(analysis), on_token)
             return
@@ -99,6 +115,9 @@ class StreamingSupportAssistant:
     async def ingest_csv(self, csv_path: Path) -> tuple[Path, int]:
         return await asyncio.to_thread(self._ingest_csv_sync, csv_path)
 
+    async def save_incident(self, ticket: Ticket, analysis: TicketAnalysis) -> Path:
+        return await asyncio.to_thread(self._save_incident_sync, ticket, analysis)
+
     def summarize_state(self, analysis: TicketAnalysis) -> SupportStateSummary:
         return SupportStateSummary(
             status=analysis.final.status,
@@ -106,6 +125,10 @@ class StreamingSupportAssistant:
             request_type=analysis.final.request_type,
             risk_level=self._risk_level(analysis),
             confidence=analysis.final.confidence,
+            hallucination_score=analysis.hallucination.score,
+            grounded=analysis.hallucination.is_grounded,
+            retrieval_attempts=analysis.retrieval_attempts,
+            top_retrieval_score=analysis.chunks[0].score if analysis.chunks else 0.0,
             references=self._references(analysis),
         )
 
@@ -288,3 +311,31 @@ class StreamingSupportAssistant:
             writer.writeheader()
             writer.writerows(output_rows)
         return output_path, len(output_rows)
+
+    def _save_incident_sync(self, ticket: Ticket, analysis: TicketAnalysis) -> Path:
+        output_path = self.repo_root / "support_tickets" / "saved_incidents.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = ["Issue", "Subject", "Company", "Response", "Product Area", "Status", "Request Type"]
+        should_write_header = not output_path.exists() or output_path.stat().st_size == 0
+
+        with output_path.open("a", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            if should_write_header:
+                writer.writeheader()
+            writer.writerow(
+                {
+                    "Issue": ticket.issue,
+                    "Subject": ticket.subject,
+                    "Company": ticket.company,
+                    "Response": analysis.final.response,
+                    "Product Area": analysis.final.product_area,
+                    "Status": analysis.final.status,
+                    "Request Type": analysis.final.request_type,
+                }
+            )
+
+        self.incident_retriever = SimilarIncidentRetriever(
+            repo_root=self.repo_root,
+            embedding_model=self.pipeline.retriever.embedding_model,
+        )
+        return output_path

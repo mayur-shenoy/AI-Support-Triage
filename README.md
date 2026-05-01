@@ -1,134 +1,170 @@
-# HackerRank Orchestrate
+# Orchestrate Prototype
 
-Starter repository for the **HackerRank Orchestrate** 24-hour hackathon (May 1–2, 2026).
+This `code/` directory contains the phase-one prototype for the HackerRank Orchestrate challenge.
 
-Build a terminal-based AI agent that triages real support tickets across three product ecosystems; **HackerRank**, **Claude**, and **Visa** — using only the support corpus shipped in this repo.
+## What is implemented
 
-Read [`problem_statement.md`](./problem_statement.md) for the full task spec, input/output schema, and allowed values, and [`evalutation_criteria.md`](./evalutation_criteria.md) for how submissions are scored.
+- Rule-based guard agent for prompt injection, adversarial requests, and obvious sensitive-number detection
+- Rule-based triage agent for domain routing, request classification, urgency, and escalation hints
+- **Knowledge graph** (`graph_store.py`) that maps corpus sections to support concepts and expands retrieval to related sections at query time
+- Hybrid retriever that combines BM25 lexical search with dense semantic search in Chroma using `all-MiniLM-L6-v2`, fused via Reciprocal Rank Fusion, then graph-expanded into evidence bundles
+- Response synthesizer with two modes:
+  - Template mode with no API dependency
+  - Optional LLM mode using environment variables
+- Hallucination verifier that checks generated responses against retrieved evidence and escalates high-risk unsupported answers
+- Escalation judge for final safety and confidence checks
+- Terminal entry point that reads `../support_tickets/support_tickets.csv` and writes `../support_tickets/output.csv`
+- Rich-powered batch progress display with live stage updates
+- Knowledge-gap report under `../log/knowledge_gaps_latest.json`
+- Interactive CLI mode for live ticket testing
+- Textual TUI mode with async streaming-style updates from the final verified pipeline response
+- Guided Textual workflow with company selection, subject, multiline issue entry, CSV ingestion, similar-incident retrieval, structured state output, references, confidence display, and saved-incident memory
 
----
+## Knowledge Graph
 
-## Contents
+The knowledge graph (`graph_store.py`) sits between the hybrid retriever and the response agent. Rather than returning a flat ranked list of chunks, the retriever groups chunks by **corpus section** and then uses the graph to pull in *related* sections that share support concepts — giving the response agent richer, more complete evidence bundles.
 
-1. [Repository layout](#repository-layout)
-2. [What you need to build](#what-you-need-to-build)
-3. [Where your code goes](#where-your-code-goes)
-4. [Quickstart](#quickstart)
-5. [Chat transcript logging](#chat-transcript-logging)
-6. [Submission](#submission)
-7. [Judge interview](#judge-interview)
-8. [Evaluation criteria](#evaluation-criteria)
+### How it works
 
----
+**1. Concept ontology (`SUPPORT_CONCEPTS`)**
 
-## Repository layout
+Thirteen top-level support concepts are defined, each with a list of trigger phrases:
+
+| Concept | Example triggers |
+|---|---|
+| `refund` | refund, reimburse, money back |
+| `billing` | billing, invoice, payment, subscription |
+| `mock_interview` | mock interview, interview credits |
+| `candidate_assessment` | assessment, candidate, score, reinvite |
+| `account_access` | access, login, admin, workspace |
+| `user_management` | deactivate user, team member, employee |
+| `security_review` | infosec, security questionnaire, vendor |
+| `privacy` | privacy, delete, export, data retention |
+| `fraud` | fraud, identity theft, unauthorized |
+| `card_support` | blocked card, lost card, stolen card |
+| `merchant_dispute` | merchant, dispute, chargeback |
+| `contact` | contact, email, phone, support team |
+| `policy` | policy, rules, must, cannot |
+
+**2. Section–concept index**
+
+At startup, `SupportGraphStore` scans every corpus section (title + body text) and records which concepts each section covers. An inverted index (`concept_sections`) is built so the graph can jump instantly from a concept name to all corpus sections that discuss it.
+
+**3. Graph expansion at retrieval time**
+
+For each primary chunk returned by BM25 + dense retrieval the graph calls `related_section_ids(primary, query_terms, target_terms)`:
+
+- Collects concepts from the **query text** and from the **primary chunk's section**.
+- Walks the inverted index to find candidate sections that share those concepts **and** belong to the same product domain (HackerRank / Claude / Visa).
+- Scores each candidate: `score = 0.006 × target_term_overlap + 0.004 × concept_overlap`
+- Returns up to 4 sibling sections, each annotated with its traversal path — e.g. `faq-billing → refund → faq-refund-policy`.
+
+**4. Evidence bundles**
+
+The retriever merges primary chunks and graph-expanded chunks into a single ranked evidence bundle passed to the response agent. This means a question about "refund" automatically pulls in billing policy, subscription terms, and any other sections the graph links — without the user needing to mention those exact words.
+
+### Inspecting graph paths
+
+Each retrieved chunk in the trace log (`log/ticket_trace_latest.json`) includes a `graph_path` field showing the concept hop used to include that section, for example:
 
 ```
-.
-├── AGENTS.md                       # Rules for AI coding tools + transcript logging
-├── problem_statement.md            # Full task description and I/O schema
-├── README.md                       # You are here
-├── code/                           # ← Build your agent here
-│   └── main.py                     #   Entry point (rename/extend as you like)
-├── data/                           # Local-only support corpus (no network needed)
-│   ├── hackerrank/                 #   HackerRank help center
-│   ├── claude/                     #   Claude Help Center export
-│   └── visa/                       #   Visa consumer + small-business support
-└── support_tickets/
-    ├── sample_support_tickets.csv  # Inputs + expected outputs (for development)
-    ├── support_tickets.csv         # Inputs only (run your agent on these)
-    └── output.csv                  # Write your agent's predictions here
+faq-billing-general → billing → faq-subscription-refunds
 ```
 
----
+This makes it straightforward to audit which concept edges contributed evidence to any given response.
 
-## What you need to build
+## Optional LLM providers
 
-A terminal-based agent that, for each row in `support_tickets/support_tickets.csv`, produces:
+The pipeline runs without an LLM, but you can enable one for better grounded synthesis.
 
-| Column         | Allowed values                                          |
-| -------------- | ------------------------------------------------------- |
-| `status`       | `replied`, `escalated`                                  |
-| `product_area` | most relevant support category / domain area            |
-| `response`     | user-facing answer grounded in the provided corpus      |
-| `justification`| concise explanation of the routing/answering decision   |
-| `request_type` | `product_issue`, `feature_request`, `bug`, `invalid`    |
+### Groq
 
-Hard requirements (from `problem_statement.md`):
+- Provider: `groq`
+- Default model: `llama-3.3-70b-versatile`
+- API key env var: `GROQ_API_KEY`
 
-- Must be **terminal-based**.
-- Must use **only the provided support corpus** (no live web calls for ground-truth answers).
-- Must **escalate** high-risk, sensitive, or unsupported cases instead of guessing.
-- Must avoid hallucinated policies or unsupported claims.
-
-Beyond that you are free to bring your own approach — RAG, vector DBs, tool use, structured output, agent frameworks, classical ML, or anything else.
-
----
-
-## Where your code goes
-
-All of your work belongs in [`code/`](./code/). The repo ships with an empty `code/main.py` you can grow into your full agent — add more modules (`agent.py`, `retriever.py`, `classifier.py`, etc.) next to it as needed.
-
-Conventions:
-
-- Put a **README inside `code/`** describing how to install dependencies and run your agent.
-- Read secrets **from environment variables only** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …). Copy `.env.example` → `.env` (already gitignored) if you keep one. **Never hardcode keys.**
-- Be **deterministic** where possible. Seed any random sampling.
-- Write responses to `support_tickets/output.csv`.
-
----
-
-## Quickstart
-
-Clone this repository:
-
-```bash
-git clone git@github.com:interviewstreet/hackerrank-orchestrate-may26.git
-cd hackerrank-orchestrate-may26
+```powershell
+$env:ORCHESTRATE_LLM_PROVIDER = "groq"
+$env:GROQ_API_KEY = "your-key"
+$env:ORCHESTRATE_LLM_MODEL = "llama-3.3-70b-versatile"
+python .\code\main.py
 ```
 
-You are free to use any language or runtime. We recommend **Python**, **JavaScript**, or **TypeScript**.
+### OpenAI
 
----
+```powershell
+$env:ORCHESTRATE_LLM_PROVIDER = "openai"
+$env:OPENAI_API_KEY = "your-key"
+python .\code\main.py
+```
 
-## Chat transcript logging
+### Anthropic
 
-This repo ships with an `AGENTS.md` that any modern AI coding tool (Cursor, Claude Code, Codex, Gemini CLI, Copilot, etc.) will read. It instructs the tool to append every conversation turn to a single shared log file:
+```powershell
+$env:ORCHESTRATE_LLM_PROVIDER = "anthropic"
+$env:ANTHROPIC_API_KEY = "your-key"
+python .\code\main.py
+```
 
-| Platform       | Path                                              |
-| -------------- | ------------------------------------------------- |
-| macOS / Linux  | `$HOME/hackerrank_orchestrate/log.txt`            |
-| Windows        | `%USERPROFILE%\hackerrank_orchestrate\log.txt`    |
+### Textual TUI
 
-You don't need to do anything to enable it — just use your AI tool normally. You'll upload this `log.txt` as your chat transcript at submission time.
+The Textual app is provider-aware:
 
----
+- `anthropic`: uses Anthropic's async streaming client with `client.messages.stream(...)`
+- `groq`: uses Groq's OpenAI-compatible streaming endpoint through the async OpenAI client
+- `openai`: uses the async OpenAI client directly
 
-## Submission
+By default, the TUI streams the pipeline's final verified response rather than asking the model to rewrite the answer after validation. This keeps the TUI aligned with `output.csv`. Set `ORCHESTRATE_TUI_REWRITE=1` to force an LLM rewrite in the TUI.
 
-Submit on the HackerRank Community Platform:
-<https://www.hackerrank.com/contests/hackerrank-orchestrate-may26/challenges/support-agent/submission>
+```powershell
+$env:ORCHESTRATE_LLM_PROVIDER = "groq"
+$env:GROQ_API_KEY = "your-key"
+$env:ORCHESTRATE_TUI_MODEL = "llama-3.3-70b-versatile"
+python .\code\main.py --mode tui
+```
 
-You will upload **three** files:
+Inside the TUI:
 
-1. **Code zip** — zip your `code/` directory and upload it. Exclude virtualenvs, `node_modules`, build artifacts, the `data/` corpus, and the `support_tickets/` CSVs.
-2. **Predictions CSV** — your agent's output for `support_tickets/support_tickets.csv` (i.e. the populated `output.csv`).
-3. **Chat transcript** — the `log.txt` from the path in [Chat transcript logging](#chat-transcript-logging).
+- Select `Company`
+- Enter `Subject` (optional)
+- Enter multiline `Issue`
+- Optionally set a `.csv` path and click `Ingest CSV`
+- Click `Retrieve Similar` to get semantically similar incidents from `sample_support_tickets.csv` plus locally saved incidents
+- Click `AI Recommendation` to get a grounded recommendation with:
+  - `status`, `product_area`, `request_type`, `risk_level`, `confidence`
+  - streamed response text
+  - retrieved references (including graph-expanded sections)
+- Click `Save Incident` after a recommendation to append the incident and its final resolution to `support_tickets/saved_incidents.csv`
 
----
+The TUI uses a single-result workspace rather than a chat transcript. Running a new incident replaces the previous result panel.
 
-## Judge interview
+Saved incidents:
 
-After a successful submission, your AI Judge interview will happen within a few hours after the hackathon ends. It will stay open for the next 4 hours. 
+- Are used immediately by semantic similar-incident retrieval in the same TUI session.
+- Are stored in `support_tickets/saved_incidents.csv`.
+- Are ignored by Git as local operator memory.
 
-The AI Judge will have access to your submission and may ask about your approach, decisions, and how you used AI while building your solution. The interview will be 30 minutes long, and keeping your camera on is mandatory.
+## Run
 
-Results will be announced on May 15, 2026
+From the repo root:
 
----
+```powershell
+python .\code\indexer.py
+python .\code\main.py
+python .\code\main.py --mode interactive
+python .\code\main.py --mode tui
+```
 
-## Evaluation criteria
+Batch mode writes:
 
-Submissions are scored across four dimensions: agent design (your `code/`), the AI Judge interview, output accuracy on `support_tickets/output.csv`, and AI fluency from your chat transcript.
+- `support_tickets/output.csv` — evaluator-facing predictions
+- `log/ticket_trace_latest.json` — per-ticket stage / retrieval / hallucination / graph-path traces
+- `log/knowledge_gaps_latest.json` — low-confidence or weakly grounded tickets that may need more corpus coverage
 
-See [`evalutation_criteria.md`](./evalutation_criteria.md) for the full rubric.
+## Notes
+
+- All application code lives under `code/`, per the repo contract.
+- Retrieval uses BM25 + Chroma dense search + Reciprocal Rank Fusion + knowledge-graph expansion.
+- Chroma's official docs support dense, sparse, and hybrid retrieval, so we stayed on Chroma instead of moving to Qdrant.
+- The agent uses only the local support corpus under `data/`.
+- The Textual app is fully async and keeps API work off the UI thread.

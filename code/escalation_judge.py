@@ -25,12 +25,25 @@ class EscalationJudge:
         text = ticket.text.lower()
 
         if not guard.is_safe:
+            response = "This request needs human review because it contains unsafe or restricted content."
+            if guard.threat_type == "security_incident":
+                response = (
+                    "This appears to involve a potential phishing, credential, account, payment, or security "
+                    "incident. I am escalating it to a human support team member for safe handling."
+                )
+            elif guard.threat_type == "account_takeover_attempt":
+                response = (
+                    "I cannot reset admin passwords, cancel active tests, transfer admin ownership, or bypass "
+                    "verification. This requires human support review."
+                )
             return ResponseDraft(
                 status="escalated",
                 product_area=triage.product_area,
-                response="This request needs human review because it contains unsafe or restricted content.",
+                response=response,
                 justification=f"Escalated by guard agent due to {guard.threat_type}.",
-                request_type="invalid" if guard.threat_type in {"prompt_injection", "adversarial_request"} else triage.request_type,
+                request_type="invalid"
+                if guard.threat_type in {"prompt_injection", "adversarial_request", "account_takeover_attempt"}
+                else triage.request_type,
                 confidence=1.0,
             )
 
@@ -44,8 +57,19 @@ class EscalationJudge:
                 )
             elif triage.escalation_reason and "Candidate score disputes" in triage.escalation_reason:
                 draft.response = (
-                    "I cannot review test answers, change a HackerRank score, or ask the hiring company to move a "
-                    "candidate to the next round from the provided support documentation. This needs human review."
+                    "I cannot review test answers, change a HackerRank score, overturn a plagiarism flag, process an "
+                    "appeal, or ask the hiring company to move a candidate to the next round from the provided support "
+                    "documentation. This needs human review."
+                )
+            elif triage.escalation_reason and "Privileged account changes" in triage.escalation_reason:
+                draft.response = (
+                    "I cannot reset admin passwords, cancel active tests, transfer admin ownership, or bypass "
+                    "verification from the provided support documentation. This needs human review."
+                )
+            elif triage.escalation_reason and "Potential phishing" in triage.escalation_reason:
+                draft.response = (
+                    "This appears to involve a potential phishing, credential, account, payment, or security "
+                    "incident. I am escalating it to a human support team member for safe handling."
                 )
             draft.justification = (
                 f"{draft.justification} Escalated after triage because {triage.escalation_reason}"
@@ -63,7 +87,21 @@ class EscalationJudge:
                 self._strip_unsupported_contacts(draft, chunks)
             return draft
 
-        if any(keyword in text for keyword in ["identity theft", "fraud", "security vulnerability", "bug bounty"]):
+        if any(
+            keyword in text
+            for keyword in [
+                "identity theft",
+                "fraud",
+                "security vulnerability",
+                "bug bounty",
+                "security breach",
+                "account is compromised",
+                "account compromised",
+                "bypass verification",
+                "transfer full admin ownership",
+                "reset all admin passwords",
+            ]
+        ):
             draft.status = "escalated"
             draft.justification = f"{draft.justification} Escalated for security or fraud handling."
             if chunks:

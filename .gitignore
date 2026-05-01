@@ -1,8 +1,19 @@
-# secrets
+# secrets / env
 .env
 .env.local
 *.pem
 *.key
+$envGEMINI_API_KEY=AIzaSyA5LEDhQL9q.txt
+
+# challenge-specific files (not for public repo)
+AGENTS.md
+CLAUDE.md
+evalutation_criteria.md
+problem_statement.md
+The log feature fix.txt
+code.zip
+log/
+log.txt
 
 # deps
 node_modules/
@@ -26,15 +37,20 @@ build/
 .vscode/
 Thumbs.db
 
-# local data / caches the participant may create
+# local data / caches
 data/index/
 data/embeddings/
 *.sqlite
 *.db
-
 *.sqlite3
 .chroma_db/
 code/.chroma_db/
 .bm25_indexes/
+code/.bm25_indexes/
 *.bin
 *.pickle
+*.pkl
+.retrieval_cache.json
+code/.retrieval_cache.json
+code/.retrieval_manifest.json
+support_tickets/saved_incidents.csv
